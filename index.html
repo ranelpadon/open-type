@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Open Type</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <meta charset="UTF-8">
+	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+
+    <!-- jQuery required by Bootstrap. -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+    <!-- Darkly Bootstrap Theme! https://bootswatch.com/darkly/-->
+    <link rel="stylesheet" type="text/css" href="https://bootswatch.com/4/darkly/bootstrap.min.css">
+    <script src="https://bootswatch.com/_vendor/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- VueJS -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.12/dist/vue.js"></script>
+
+    <style>
+        body {
+            margin: 20px;
+        }
+
+        .card-body {
+            margin-top: 120px;
+        }
+
+        .card-header {
+            background-color: #2D394D;
+        }
+
+        .card-header a {
+            color: #00BC8C;
+        }
+
+        .card-header a:hover {
+            color: #FF7A90;
+            text-decoration: none;
+        }
+
+        .instruction,
+        input.form-control-lg {
+            max-width: 60rem;
+            margin: auto;
+            height: auto;
+        }
+
+        .center {
+            display: flex;
+            justify-content: center;
+        }
+
+        input.form-control-lg,
+        .word {
+            font-size: 32px;
+            height: 60px;
+            text-align: center;
+        }
+
+        .word.mb-3 {
+            height: auto;
+            margin-bottom: 0 !important;
+            padding: 10px;
+        }
+
+        .stats {
+            margin-top: -15px;
+        }
+
+        fieldset {
+            margin: -20px 30px 20px;
+        }
+
+        h4 {
+            margin-bottom: 40px;
+        }
+
+        .input-fields {
+            margin: auto
+            max-width: 60rem;
+            padding-bottom: 20px;
+            padding-top: 20px;
+        }
+
+        .input-practice-typing {
+            margin-top: -30px;
+        }
+
+        .form-group input::-webkit-input-placeholder {
+            transform: scale(0.50);
+        }
+
+        .form-group input:-ms-input-placeholder {
+            font-size: 20px;
+        }
+
+        .form-group input::-moz-placeholder {
+            font-size: 20px;
+        }
+
+        .stats {
+            margin-top: 5px;
+            margin-bottom: 240px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="card">
+        <div class="card-body">
+            <div class="instruction word text-white bg-primary mb-3">
+                Type anything in the text box below
+            </div>
+            <div class="form-group input-fields">
+                <label class="col-form-label col-form-label-lg"></label>
+                <input v-model="typedPhrase" :class="{'form-control': true, 'form-control-lg': true}" 
+                    id="input-typing" type="text" placeholder="Press <TAB> or <ESC> to reset" v-on:keyup="keyHandler"
+                >
+            </div>
+        </div>
+        <div class="center stats">
+            <h4>Raw WPM: {{ rawWPM }} </h4>
+            &nbsp; &nbsp; &nbsp; &nbsp; <h4>Accuracy: {{ accuracy }} % </h4>
+        </div>
+
+        <h3 class="title-wrapper center card-header">
+            <a class="title" href="https://github.com/ranelpadon/open-type">
+                Open Type
+            <a>
+        </h3>
+    </div>
+    <script type="text/javascript">
+        var openTypeConfig = {
+            el: '#app',
+            data: function() {
+                return {
+                    typedPhrase: '',
+                    startTime: '',
+                    hitsCorrect: 0,
+                    hitsWrong: 0,
+                }
+            },
+            computed: {
+                rawWPM: function() {
+                    if (!this.hitsCorrect && !this.hitsWrong) {
+                        return 0;
+                    }
+                    var currentTime = new Date().getTime() / 1000;
+                    return (((this.hitsCorrect + this.hitsWrong) / 5) / (currentTime - this.startTime) * 60).toFixed(2);
+                },
+                WPM: function() {
+                    if (!this.hitsCorrect && !this.hitsWrong) {
+                        return 0;
+                    }
+                    var currentTime = new Date().getTime() / 1000;
+                    return (((this.hitsCorrect - this.hitsWrong) / 5) / (currentTime - this.startTime) * 60).toFixed(2);
+                },
+                accuracy: function() {
+                    if (!this.hitsCorrect && !this.hitsWrong) {
+                        return 0;
+                    }
+                    return (this.hitsCorrect / (this.hitsCorrect + this.hitsWrong) * 100).toFixed(2);
+                },
+            },
+            mounted: function() {
+                // Use jQuery instead of Vue for intercepting the <TAB> key.
+                var that = this;
+                $('#input-typing').on('keydown', function(e) {
+                    if (e.originalEvent.code == 'Tab') {
+                        e.preventDefault();
+                        that.resetCurrentPhraseMetrics();
+                    }
+                });
+
+                this.correctLetterSound = new Audio('./media/click.mp3');
+                this.currentPlayingSound = null;
+            },
+            watch: {
+                typedPhrase: function() {
+                    // Make sure to reset any error color when moving to next lesson,
+                    // lesson being reset, all chars being deleted, etc. 
+                    if (!this.typedPhrase.length) {
+                        this.resetCurrentPhraseMetrics();
+                    }
+
+                    if (this.typedPhrase.length == 1) {
+                        this.startTime = new Date().getTime() / 1000;
+                    }
+                },
+
+            },
+            methods: {
+                stopCurrentPlayingSound: function() {
+                    // Reset any playing sound to handle fast typing,
+                    // Otherwise, the sound will be intermittent and
+                    // not in sync with the key presses.
+                    if (this.currentPlayingSound) {
+                        this.currentPlayingSound.currentTime = 0;
+                    }
+                },
+                keyHandler: function(e) {
+                    var key = e.key;
+
+                    if (key == 'Escape') {
+                        this.resetCurrentPhraseMetrics();
+                        return;
+                    }
+
+                    // For other miscellaneous keys.
+                    if (key.length > 1) {
+                        if (key == 'Backspace') {
+                            this.stopCurrentPlayingSound();
+                            this.correctLetterSound.play();
+                            this.currentPlayingSound = this.correctLetterSound;
+                            this.hitsWrong += 1;
+                        }
+                        return;
+                    }
+
+                    var typedPhrase = this.typedPhrase.trimStart();
+                    if (!typedPhrase.length) {
+                        return;
+                    }
+
+                    this.stopCurrentPlayingSound();
+                    this.correctLetterSound.play();
+                    this.currentPlayingSound = this.correctLetterSound;
+                    this.hitsCorrect += 1;
+                },
+                resetCurrentPhraseMetrics: function() {
+                    this.hitsCorrect = 0;
+                    this.hitsWrong = 0;
+                    this.typedPhrase = '';
+                },
+            },
+        };
+
+        var openTypeApp = new Vue(openTypeConfig);
+    </script>
+</body>
+</html>
